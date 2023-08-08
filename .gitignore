@@ -2,3 +2,5 @@
 /Makefile2
 /kernel8.img
 /target
+*.o
+*.elf

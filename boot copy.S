@@ -1,6 +1,8 @@
 
-.section .text._start
-.global _start
+.section ".text.boot"  // Make sure the linker puts this at the start of the kernel image
+
+.global _start  // Execution starts here
+
 .equ BASE, 0xFE000000
 .equ AUX_BASE, 0xFE215000
 .equ UART, 0xFE215040
@@ -41,17 +43,28 @@ _start:
     // mpidr_el1 = 0, so it's the main core
     // mpidr_el1 = 1 would be the cluster
 
-    mrs x1,mpidr_el1
-    and x1,x1, #3   // move into x1 the result from mpidr_el1 bitwiseAND #3
-    cbz x1,2f   // compare x1 with #0 and if true branch to 2f
+    mrs     x1, mpidr_el1
+    and     x1, x1, #3
+    cbz     x1, 2f
+    // We're not on the main core, so hang in an infinite wait loop
+1:  wfe
+    b       1b
+2:  // We're on the main core!
 
-// We're not on the main core, so hang in an infinite wait loop
-1:
-    wfe
-    b 1b
+    // Set stack to start below our code
+    ldr     x1, =_start
+    mov     sp, x1
 
-// We're on the main core!
-2:  
+    // Clean the BSS section
+    ldr     x1, =__bss_start     // Start address
+    ldr     w2, =__bss_size      // Size of the section
+3:  cbz     w2, 4f               // Quit loop if zero
+    str     xzr, [x1], #8
+    sub     w2, w2, #1
+    cbnz    w2, 3b               // Loop if non-zero
+
+
+4:
     // set GPIO 14 and 15 to float
     // 14 -> bits 29:28 on GPPUPPDN0
     // 15 -> bits 31:30 on GPPUPPDN0
